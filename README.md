@@ -423,8 +423,7 @@ etch_proj_final/
 ├── agents/
 │   ├── llm_guard.py            # OpenAI 과금 총괄 킬 스위치
 │   ├── shap_agent.py           # SHAP → LLM 한국어 원인 해설
-│   ├── rag_agent.py            # GraphRAG V1  (legacy — 실행 경로에서 제외)
-│   └── rag_agent_v2.py         # GraphRAG V2  (현행: 자동·수동 모두 사용)
+│   └── rag_agent_v2.py         # GraphRAG (자동·수동·검증 모두 사용)
 │                               #   SENSOR_ALIASES · shap_list_to_dict 포함
 │
 ├── graphdb/neo4j_loader_v2.py  # 지식그래프 적재
@@ -464,14 +463,7 @@ KG 에는 MSS 센서 19개만 노드로 있다. OES 파장(`364.33`)과 RFM 하�
 것은 7개(`TCP Top Power` · `RF Bottom Power` · `Chamber Pressure` · `Vat Valve` ·
 `BCl3 Flow` · `Cl2 Flow` · `Helium Pressure`)다.
 
-### 3. V1 이 저장소에 남아 있다
-
-서비스 실행 경로(자동 Phase 2 · `/api/rag_search`)는 전부 V2 로 통일했지만,
-`app.py`(React 이전 Streamlit 데모)와 `validation/` 두 스크립트는 아직 `GraphRAGAgent`(V1)를
-부른다. V1 의 Cypher 가 요구하는 `FIXED_BY` · `Task` · `Cause` 는 현행 KG 에 없어 빈 결과가 나온다.
-`agents/rag_agent.py` 상단에 legacy 표시를 해 뒀다.
-
-### 4. 운영상 주의
+### 3. 운영상 주의
 
 - **Neo4j Aura 무료 인스턴스는 유휴 시 자동 일시정지**된다. 데모 전에 resume 이 필요하다.
 - `.env` 에서 `OPENAI_ENABLED` 와 `LLM_ANALYSIS_ENABLED` 를 둘 다 `false` 로 두고 있다.

@@ -11,7 +11,7 @@ import sys
 # 프로젝트 루트 디렉토리를 sys.path에 추가하여 상위 디렉토리의 모듈을 임포트할 수 있게 함
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agents.rag_agent import GraphRAGAgent
+from agents.rag_agent_v2 import GraphRAGAgentV2
 from datetime import datetime
 
 def run_rag_assessment():
@@ -19,7 +19,7 @@ def run_rag_assessment():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # 1. RAG 에이전트 초기화
-    agent = GraphRAGAgent()
+    agent = GraphRAGAgentV2()
     
     # 2. 테스트 케이스 (다양한 결함 시나리오)
     test_cases = [
@@ -34,21 +34,25 @@ def run_rag_assessment():
     # 3. 각 케이스별 검색 및 답변 생성 수행
     print(f"🔍 {len(test_cases)}개의 결함 시나리오에 대해 지식 검색 성능을 측정합니다...")
     for fault in test_cases:
-        # RAG 검색 수행 (내부적으로 context를 가져옴)
-        # 실제 GraphRAGAgent의 구조에 따라 다르지만, 여기서는 답변 생성 프로세스를 통해 간접 측정
-        response = agent.run(fault, shap_context="센서 데이터 이상 감지됨")
-        
-        # 검색된 내용에 해당 결함 키워드가 포함되어 있는지 체크 (Hit Rate)
-        # agent.run() 결과물 내에 관련 키워드가 있는지 확인
+        # KG 의 Fault.name 은 공백이 없다 ('TCP +30' vs 'TCP+30') → 힌트에서 공백 제거
+        out = agent.recommend(
+            fault_name_hint=fault.replace(" ", ""),
+            question="이 결함의 원인과 점검 절차를 알려주세요.",
+        )
+        response = out.get("answer", "")
+
+        # 답변에 해당 결함 키워드가 포함되어 있는지 체크 (Hit Rate)
         hit = any(kw.lower() in response.lower() for kw in fault.split(' '))
-        
+
         results.append({
             'Fault_Case': fault,
             'Hit': hit,
+            'Candidates': len(out.get("candidates", [])),
             'Response_Length': len(response),
             'Response_Snippet': response[:100].replace('\n', ' ') + "..."
         })
-    
+
+    agent.close()
     res_df = pd.DataFrame(results)
     
     # 4. 결과 출력 및 저장

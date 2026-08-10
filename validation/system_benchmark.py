@@ -15,7 +15,7 @@ import pandas as pd
 import time
 from inference import InferenceEngine
 from shap_analysis import SHAPExplainer
-from agents.rag_agent import GraphRAGAgent
+from agents.rag_agent_v2 import GraphRAGAgentV2, shap_list_to_dict
 
 def run_system_benchmark():
     print("🚀 [시스템 벤치마크] 단계별 처리 속도 측정을 시작합니다.")
@@ -25,7 +25,7 @@ def run_system_benchmark():
     start_time = time.time()
     engine = InferenceEngine()
     explainer = SHAPExplainer(engine.lgb_model, engine.features)
-    agent = GraphRAGAgent()
+    agent = GraphRAGAgentV2()
     init_time = time.time() - start_time
     print(f"⚙️  시스템 초기화 완료: {init_time:.2f}초")
     
@@ -53,17 +53,24 @@ def run_system_benchmark():
         sample_df.columns = sample_df.columns.str.strip()
         X_scaled = engine.scaler.transform(sample_df[engine.features])
         pred_idx = 0 # 예시용
-        _ = explainer.explain(X_scaled, sample, pred_idx)
+        shap_out = explainer.explain(X_scaled, sample, pred_idx)
         step_times['SHAP'] = time.time() - t1
-        
-        # Step 3: RAG Diagnosis (OpenAI 호출 포함)
+
+        # Step 3: RAG Diagnosis (Neo4j 조회 + OpenAI 호출 포함)
+        # server._call_rag_v2() 와 같은 경로: SHAP 결과를 지문 매칭에 넘긴다.
         t2 = time.time()
-        _ = agent.run(result['status'], shap_context="Benchmark test")
+        _ = agent.recommend(
+            shap_analysis=shap_list_to_dict(shap_out),
+            fault_name_hint=result['status'].replace(" ", ""),
+            question="이 이상 징후의 원인과 점검 절차를 알려주세요.",
+        )
         step_times['RAG'] = time.time() - t2
         
         step_times['Total'] = sum(step_times.values())
         latencies.append(step_times)
     
+    agent.close()
+
     latency_df = pd.DataFrame(latencies)
     avg_latency = latency_df.mean()
     

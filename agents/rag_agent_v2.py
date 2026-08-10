@@ -1,7 +1,7 @@
 """
 GraphRAG Agent v2 — Two-stage retrieval + SHAP fingerprint matching
 
-Token optimization techniques (estimated 40-60 percent saving vs v1):
+Token optimization techniques (estimated 40-60 percent saving vs naive JSON injection):
   1. SHAP context: JSON dump -> compact natural-language line (~25 vs ~120 tokens)
   2. SOP: abstract first, full steps fetched only on follow-up (~70 vs ~400 tokens)
   3. Cypher returns trimmed property set, not whole node dicts

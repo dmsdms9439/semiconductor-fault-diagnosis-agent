@@ -291,7 +291,6 @@ LLM이 추가 정보를 요청해 도구를 다시 부르는 경로는 없다.
   <li><b>OES · RFM 센서는 지문 매칭에 기여하지 않는다.</b> KG 에는 MSS 센서 19개만 노드로 있고 OES 파장(<code>364.33</code>)이나 RFM 하모닉(<code>S2P4</code>)에 대응하는 노드가 없다. 정규화에서 원본 그대로 통과한 뒤 매칭에서 탈락한다. 218개 피처 중 지문에 쓰이는 것은 7개다.</li>
   <li><b>LLM 출력의 내용을 자동으로 검증하지 않는다.</b> 생성된 정비 가이드가 KG 에 실재하는 SOP 인지, 센서 근거와 모순되지 않는지 확인하는 단계가 없다. 현재는 SHAP 근거를 결과와 함께 보내 사람이 대조한다.</li>
   <li><b>API 키 별칭 처리가 일부 파일에만 있다.</b> <code>.env</code> 는 <code>OPEN_AI_API_KEY</code> 를 쓰는데 <code>OPENAI_API_KEY</code> 로 복사하는 코드가 <code>shap_agent.py</code> 와 <code>server.py</code> 에만 있다. <code>rag_agent_v2.py</code> 를 단독 실행하면 인증에 실패한다(서버 경로는 <code>server.py</code> 가 먼저 처리해 문제없다).</li>
-  <li><b>V1 이 검증 스크립트에 남아 있다.</b> 실행 경로에서는 빠졌지만 <code>validation/</code> 두 스크립트가 아직 <code>GraphRAGAgent</code> 를 부른다. 현행 KG 스키마와 맞지 않아 빈 결과를 낸다.</li>
 </ul>
 
 </div>
