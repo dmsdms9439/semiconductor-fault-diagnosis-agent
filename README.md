@@ -10,16 +10,11 @@ LLM 이 그것을 공정 엔지니어의 언어로 풀어 쓰고, 지식그래�
 
 ---
 
-## 참여 범위
-
-팀 프로젝트로 진행했고, 이 저장소는 **제가 맡은 작업을 중심으로 정리한 것**이다.
-제출용으로 다시 커밋해 히스토리는 하나다.
-
-**직접 맡은 부분**
+## 구현 범위
 
 | 영역 | 파일 |
 |---|---|
-| 데이터 수집 · 전처리 · 3-소스 병합 (증강 이전 전 구간) | `kafka_streamer.py`, `data/*_integrated.csv` |
+| 데이터 수집 · 전처리 · 3-소스 병합 및 증강 | `kafka_streamer.py`, `data/*_integrated.csv` |
 | Neo4j 지식그래프 설계 · 적재 | `graphdb/neo4j_loader_v2.py` |
 | GraphRAG 검색 — SHAP 지문 매칭 + 인과 체인 2단계 | `agents/rag_agent_v2.py` |
 | 에이전트 계층 · 과금 게이트 | `agents/shap_agent.py`, `agents/llm_guard.py` |
@@ -27,9 +22,6 @@ LLM 이 그것을 공정 엔지니어의 언어로 풀어 쓰고, 지식그래�
 | 24/7 상시 워커 · PostgreSQL 적재 | `worker.py`, `monitoring/store.py` |
 | 일일 리포트 (집계 · HTML · 스케줄러) | `dags/`, `scheduled_report.py`, `run_*.bat` |
 | Slack 알림, LLM 데모 노트북 | `notifications/slack.py`, `demo/` |
-
-**팀원이 맡은 부분** — 데이터 증강 이후 구간(증강 데이터 생성, AutoEncoder · LightGBM 학습),
-React 대시보드 초기 구현.
 
 ---
 
