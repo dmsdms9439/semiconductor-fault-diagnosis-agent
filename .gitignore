@@ -1,0 +1,39 @@
+# --- 비밀정보 (절대 커밋 금지) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*.json
+*service-account*.json
+
+# --- 파이썬 ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# --- 노드 / 프론트엔드 ---
+node_modules/
+frontend/dist/
+frontend/node_modules/
+.vite/
+
+# --- 런타임 산출물 ---
+logs/
+reports/
+validation/results/
+
+# --- 로컬 전용 (개인 경로·계정이 들어감) ---
+scratch/
+*_u16.xml
+.git_old_backup/
+
+# --- OS / 에디터 ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,134 @@
+services:
+  # Zookeeper (Kafka 의존성)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - sensor-network
+
+  # Kafka Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+    networks:
+      - sensor-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Kafka UI (선택사항 - 모니터링용)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8989:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - sensor-network
+# 
+#   # Redis (캐싱 및 상태 저장용)
+#   redis:
+#     image: redis:7-alpine
+#     container_name: redis
+#     ports:
+#       - "6379:6379"
+#     networks:
+#       - sensor-network
+# 
+#   # PostgreSQL (분석 결과 저장용 - 선택사항)
+#   postgres:
+#     image: postgres:15-alpine
+#     container_name: postgres
+#     environment:
+#       POSTGRES_USER: sensor_user
+#       POSTGRES_PASSWORD: sensor_pass
+#       POSTGRES_DB: sensor_analytics
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     networks:
+#       - sensor-network
+
+  # Neo4j (지식 그래프/매뉴얼 저장 및 GraphRAG용)
+  neo4j:
+    image: neo4j:enterprise
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/etch_final_pass
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    networks:
+      - sensor-network
+    restart: unless-stopped
+
+  # Postgres — 실시간 추론 결과 적재(inference_log) + 일일 리포트 집계 원천
+  postgres:
+    image: postgres:15-alpine
+    container_name: etch-postgres
+    environment:
+      POSTGRES_USER: etch
+      POSTGRES_PASSWORD: etch_pass
+      POSTGRES_DB: etch_monitoring
+    ports:
+      - "5432:5432"    # 호스트의 server.py/worker가 localhost:5432로 접속
+    volumes:
+      - monitoring_pg_data:/var/lib/postgresql/data
+    networks:
+      - sensor-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etch -d etch_monitoring"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  sensor-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:
+  monitoring_pg_data:

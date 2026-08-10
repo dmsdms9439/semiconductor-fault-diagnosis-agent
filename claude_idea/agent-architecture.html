@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent 아키텍처 — LLM 호출 · 도구 연동 · 결과 처리</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --fg:#0f172a;
+    --muted:#5b6b82;
+    --faint:#8a99ad;
+    --rule:#dfe5ec;
+    --band:#f7f9fc;
+    --box:#ffffff;
+    --box-stroke:#b9c4d2;
+
+    --impl:#1d4ed8;
+    --impl-bg:#eef4ff;
+    --impl-stroke:#7ea2ee;
+
+    --gate:#a15c07;
+    --gate-bg:#fff8ea;
+    --gate-stroke:#e0b062;
+
+    --todo:#6b7c92;
+    --todo-bg:#f2f5f9;
+    --todo-stroke:#a8b6c7;
+
+    --codebg:#f1f4f8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1420;
+      --fg:#e7edf6;
+      --muted:#a3b1c4;
+      --faint:#76869b;
+      --rule:#26324a;
+      --band:#131b2b;
+      --box:#182032;
+      --box-stroke:#374761;
+
+      --impl:#8ab4ff;
+      --impl-bg:#16233d;
+      --impl-stroke:#3f5f9e;
+
+      --gate:#e8b563;
+      --gate-bg:#2a2115;
+      --gate-stroke:#7a5c28;
+
+      --todo:#93a3b8;
+      --todo-bg:#1a2131;
+      --todo-stroke:#3b4a63;
+
+      --codebg:#1c2536;
+    }
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:"Pretendard","Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+
+  header.doc{border-bottom:2px solid var(--fg);padding-bottom:16px;margin-bottom:22px}
+  header.doc h1{font-size:24px;line-height:1.35;margin:0 0 6px;letter-spacing:-.01em}
+  header.doc .sub{color:var(--muted);font-size:14px;margin:0}
+
+  .lead{font-size:14.5px;color:var(--muted);margin:0 0 30px;max-width:66ch}
+  .lead b{color:var(--fg)}
+
+  .figure{margin:0 0 40px}
+  .figure svg{width:100%;height:auto;display:block}
+  figcaption{color:var(--faint);font-size:12.5px;margin-top:10px;text-align:center}
+
+  h2.sec{
+    font-size:18px;margin:40px 0 12px;padding-top:18px;
+    border-top:1px solid var(--rule);letter-spacing:-.01em;
+  }
+  p{margin:0 0 14px;max-width:74ch}
+  ul{margin:0 0 14px;padding-left:22px;max-width:74ch}
+  li{margin-bottom:8px}
+
+  code{
+    font-family:"Cascadia Mono",Consolas,"D2Coding",ui-monospace,monospace;
+    font-size:.87em;background:var(--codebg);
+    padding:1px 5px;border-radius:4px;white-space:nowrap;
+  }
+
+  .tablewrap{overflow-x:auto;margin:0 0 18px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:600px}
+  th,td{border:1px solid var(--rule);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--band);font-weight:600;white-space:nowrap}
+  td code{white-space:normal}
+  td:first-child{white-space:nowrap;color:var(--muted)}
+
+  /* ---- SVG ---- */
+  .box{fill:var(--box);stroke:var(--box-stroke);stroke-width:1.2}
+  .box-impl{fill:var(--impl-bg);stroke:var(--impl-stroke);stroke-width:1.4}
+  .box-todo{fill:var(--todo-bg);stroke:var(--todo-stroke);stroke-width:1.4;stroke-dasharray:6 4}
+
+  .bt{fill:var(--fg);font-size:15px;font-weight:700}
+  .bt-impl{fill:var(--impl);font-size:15px;font-weight:700}
+  .bt-todo{fill:var(--todo);font-size:14px;font-weight:700}
+  .bd{fill:var(--fg);font-size:12.5px}
+  .bm{fill:var(--muted);font-size:11.5px}
+  .bc{fill:var(--faint);font-size:10.5px;font-family:"Cascadia Mono",Consolas,ui-monospace,monospace}
+
+  .flow{stroke:var(--impl);stroke-width:2.2;fill:none}
+  .flow-todo{stroke:var(--todo);stroke-width:1.8;fill:none;stroke-dasharray:6 4}
+  .hair{stroke:var(--rule);stroke-width:1;fill:none}
+
+  .lgd{fill:var(--muted);font-size:11.5px}
+  .ttl{fill:var(--fg);font-size:16px;font-weight:700}
+
+  @media print{
+    :root{
+      --bg:#ffffff; --fg:#0f172a; --muted:#5b6b82; --faint:#8a99ad;
+      --rule:#dfe5ec; --band:#f7f9fc; --box:#ffffff; --box-stroke:#b9c4d2;
+      --impl:#1d4ed8; --impl-bg:#eef4ff; --impl-stroke:#7ea2ee;
+      --gate:#a15c07; --gate-bg:#fff8ea; --gate-stroke:#e0b062;
+      --todo:#6b7c92; --todo-bg:#f2f5f9; --todo-stroke:#a8b6c7;
+      --codebg:#f1f4f8;
+    }
+    @page{size:A4 portrait;margin:12mm}
+    body{background:#fff;color:var(--fg);font-size:10.5pt;
+         -webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .wrap{padding:0;max-width:none}
+    .figure{break-inside:avoid}
+    table{font-size:9pt}
+    tr{break-inside:avoid}
+    h2.sec{break-after:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>AI Agent 아키텍처 — LLM 호출 · 도구 연동 · 결과 처리</h1>
+  <p class="sub">반도체 플라즈마 식각 공정 이상탐지 시스템 · 에이전트 계층</p>
+</header>
+
+<p class="lead">
+현재 구현은 LLM이 도구를 자율 선택하는 구조가 아니다.
+<b>오케스트레이터(<code>server.py</code>)가 SHAP 분석과 Knowledge Graph 조회를 먼저 실행하고,
+그 결과를 컨텍스트로 묶어 LLM을 호출한다.</b>
+LLM이 추가 정보를 요청해 도구를 다시 부르는 경로는 없다.
+</p>
+
+<figure class="figure">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 645" role="img" aria-label="에이전트 계층 실행 흐름 다이어그램">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--impl)"/>
+    </marker>
+  </defs>
+
+  <text class="ttl" x="20" y="24">실행 흐름</text>
+  <text class="lgd" x="20" y="44">이상 감지 또는 사용자 질의 1건이 처리되는 경로</text>
+
+  <rect x="900" y="8" width="272" height="46" rx="6" class="box"/>
+  <line x1="916" y1="26" x2="946" y2="26" class="flow"/>
+  <text class="lgd" x="954" y="30">구현됨</text>
+  <line x1="916" y1="44" x2="946" y2="44" class="flow-todo"/>
+  <text class="lgd" x="954" y="48">참고 표시 (실행 단계 아님)</text>
+
+  <!-- ===== ① 트리거 ===== -->
+  <rect x="20" y="70" width="330" height="170" rx="8" class="box"/>
+  <text class="bt" x="38" y="98">① 트리거</text>
+  <text class="bd" x="38" y="124">실시간 — 이상 감지 이벤트</text>
+  <text class="bm" x="38" y="142">Kafka 3토픽 병합 → AE(MSE) → LightGBM</text>
+  <text class="bd" x="38" y="170">수동 — 정비 가이드 질의</text>
+  <text class="bm" x="38" y="188">React RagGuide 탭 → POST /api/rag_search</text>
+  <text class="bc" x="38" y="222">worker.py  ·  server.py</text>
+
+  <path class="flow" d="M350,155 L398,155" marker-end="url(#ar)"/>
+
+  <!-- ===== ② 도구 실행 ===== -->
+  <rect x="405" y="70" width="330" height="170" rx="8" class="box-impl"/>
+  <text class="bt-impl" x="423" y="98">② 도구 실행</text>
+  <text class="bd" x="423" y="124">SHAP 분석</text>
+  <text class="bm" x="423" y="142">TreeExplainer · 기여 상위 5개 센서</text>
+  <text class="bd" x="423" y="170">Neo4j Knowledge Graph 조회</text>
+  <text class="bm" x="423" y="188">Cypher 질의 — 벡터 검색·임베딩 없음</text>
+  <text class="bc" x="423" y="222">shap_analysis.py  ·  rag_agent_v2.py</text>
+
+  <path class="flow" d="M735,155 L783,155" marker-end="url(#ar)"/>
+
+  <!-- ===== ③ 컨텍스트 구성 ===== -->
+  <rect x="790" y="70" width="330" height="170" rx="8" class="box"/>
+  <text class="bt" x="808" y="98">③ 컨텍스트 구성</text>
+  <text class="bd" x="808" y="124">SHAP 결과와 KG 인과 체인을</text>
+  <text class="bd" x="808" y="142">문자열로 만들어 프롬프트에 주입</text>
+  <text class="bm" x="808" y="170">v2 는 SHAP 를 한 줄로 압축하고</text>
+  <text class="bm" x="808" y="188">SOP 는 요약(abstract)만 넣는다</text>
+  <text class="bc" x="808" y="222">compact_shap()  ·  _format_chain()</text>
+
+  <!-- wrap connector -->
+  <path class="flow" d="M955,240 L955,272 L185,272 L185,301" marker-end="url(#ar)"/>
+
+  <!-- ===== ④ LLM 호출 ===== -->
+  <rect x="20" y="305" width="330" height="170" rx="8" class="box-impl"/>
+  <text class="bt-impl" x="38" y="333">④ LLM 호출</text>
+  <text class="bd" x="38" y="359">SHAPAgent — 센서 이상의 원인 해설</text>
+  <text class="bd" x="38" y="377">GraphRAGAgentV2 — 정비 조치 가이드</text>
+  <text class="bm" x="38" y="404">gpt-4o-mini · temperature=0 · stateless</text>
+  <text class="bm" x="38" y="422">asyncio.gather 로 두 호출 병렬</text>
+  <text class="bc" x="38" y="457">shap_agent.py  ·  rag_agent_v2.py</text>
+
+  <path class="flow" d="M350,390 L398,390" marker-end="url(#ar)"/>
+
+  <!-- ===== ⑤ 결과 처리 ===== -->
+  <rect x="405" y="305" width="330" height="170" rx="8" class="box"/>
+  <text class="bt" x="423" y="333">⑤ 결과 처리</text>
+  <text class="bd" x="423" y="359">예외 처리 — 실패 시 안내 문구로 대체</text>
+  <text class="bd" x="423" y="377">출력 문구 치환 — UNKNOWN FAULT → 감지된 결함</text>
+  <text class="bd" x="423" y="395">길이 절단 — Slack 한도 대비 2800자</text>
+  <text class="bm" x="423" y="422">운영 안정성 처리이며 내용 검증은 아니다</text>
+  <text class="bc" x="423" y="457">server.py  ·  notifications/slack.py</text>
+
+  <path class="flow" d="M735,390 L783,390" marker-end="url(#ar)"/>
+
+  <!-- ===== ⑥ 전달 ===== -->
+  <rect x="790" y="305" width="330" height="170" rx="8" class="box"/>
+  <text class="bt" x="808" y="333">⑥ 전달</text>
+  <text class="bd" x="808" y="359">WebSocket → React (shap_report)</text>
+  <text class="bd" x="808" y="377">Slack 알림 — SHAP 근거 + LLM 결과</text>
+  <text class="bd" x="808" y="395">REST 응답 → RagGuide 탭</text>
+  <text class="bm" x="808" y="422">LLM 이 꺼져 있어도 SHAP 근거는 전송된다</text>
+  <text class="bc" x="808" y="457">server.py</text>
+
+  <line x1="20" y1="505" x2="1120" y2="505" class="hair"/>
+
+  <!-- ===== 검토 / 검증 현황 (실행 단계 아님) ===== -->
+  <rect x="20" y="520" width="1100" height="105" rx="8" class="box-todo"/>
+  <text class="bt-todo" x="38" y="547">검토 / 검증 현황 — 실행 흐름의 단계가 아니라 현재 수준 표시</text>
+  <text class="bd" x="38" y="574">현재 · SHAP 근거(센서 · 현재값 · 정상범위 · High/Low)를 LLM 생성 결과와 같은 리포트·알림에 함께 실어 운영자가 직접 대조한다.</text>
+  <text class="bm" x="38" y="600">미구현 · LLM 출력이 SHAP · Knowledge Graph 근거와 일치하는지 자동으로 검증하는 단계는 없다.</text>
+</svg>
+<figcaption>그림 1. 이상 감지 또는 사용자 질의 1건의 처리 경로</figcaption>
+</figure>
+
+<h2 class="sec">1. 실행 흐름</h2>
+
+<p>진입 경로는 둘이다. 실시간 경로는 Kafka 세 토픽(OES · MACHINE · RFM)을 <code>(설비, run, time_step)</code> 키로 병합해 추론 엔진에 넣고, 오토인코더 재구성 오차와 LightGBM 분류로 이상을 판정한다. 이상이면 백그라운드 태스크로 ②부터 실행된다. 수동 경로는 정비 담당자가 React 탭에서 <code>POST /api/rag_search</code>로 직접 질의하는 경우다.</p>
+
+<p>LLM 호출은 실시간 스트림에서 분리했다. 대시보드로 나가는 MSE·상태 방송은 매 데이터 포인트마다 LLM 없이 처리하고, LLM이 붙는 정밀 분석은 run 에서 MSE 가 가장 컸던 시점 하나만 골라 나중에 돌린다.</p>
+
+<p>SHAP 분석과 Knowledge Graph 조회는 ④ 이전에 끝난다. 두 결과를 문자열로 만들어 프롬프트에 넣고, <code>SHAPAgent</code>와 <code>GraphRAGAgentV2</code>를 <code>asyncio.gather(..., return_exceptions=True)</code>로 병렬 호출한다. Neo4j Aura 가 원격이라 간헐적으로 실패하는데, 그때 SHAP 쪽 결과까지 함께 버려지지 않게 하려는 것이다.</p>
+
+<p>자동 경로와 수동 질의는 <code>server._call_rag_v2()</code> 하나를 공유한다. SHAP 결과(list)를 V2 가 받는 dict 로 바꾸는 것과 센서명을 KG 이름으로 맞추는 것은 <code>rag_agent_v2</code> 의 <code>shap_list_to_dict()</code> · <code>SENSOR_ALIASES</code> 가 맡는다. 모델은 <code>TCP Top Pwr</code>, KG 는 <code>TCP Top Power</code> 로 부르기 때문에 이 치환이 없으면 지문 매칭이 전부 빗나간다.</p>
+
+<p>과금 스위치는 두 개다. <code>OPENAI_ENABLED</code>는 <b>코드 기본값이 <code>true</code></b>(미설정 시 허용)지만 이 프로젝트 <code>.env</code>에는 <code>false</code>로 두고 있다. <code>LLM_ANALYSIS_ENABLED</code>는 코드 기본값과 <code>.env</code>가 모두 <code>false</code>다. 실시간 경로에서 LLM 이 호출되려면 둘 다 켜야 한다. <code>ensure_openai_enabled()</code>가 세 에이전트 <code>__init__</code> 첫 줄에 있어, 꺼진 상태에서는 에이전트 객체 생성 단계에서 막힌다.</p>
+
+<h2 class="sec">2. 주요 코드 위치</h2>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>단계</th><th>파일 · 함수</th><th>하는 일</th></tr></thead>
+  <tbody>
+    <tr><td>① 실시간</td><td><code>worker.py</code> · <code>_consume_and_infer_forever()</code></td><td>Kafka 3토픽 병합 후 추론 호출</td></tr>
+    <tr><td>① 수동</td><td><code>server.py</code> · <code>rag_search()</code></td><td><code>POST /api/rag_search</code> 처리</td></tr>
+    <tr><td>② SHAP</td><td><code>shap_analysis.py</code> · <code>SHAPExplainer.explain()</code></td><td>TreeExplainer 로 상위 5개 센서, 정상범위 대비 High/Low 판정</td></tr>
+    <tr><td>② KG 조회</td><td><code>rag_agent_v2.py</code> · <code>stage1_match_fault()</code> / <code>stage2_fetch_chain()</code></td><td>SHAP 지문으로 결함 후보 랭킹 → 인과 체인과 SOP 요약 조회</td></tr>
+    <tr><td>② 어댑터</td><td><code>rag_agent_v2.py</code> · <code>shap_list_to_dict()</code></td><td><code>SHAPExplainer</code> 의 list 출력을 V2 가 받는 dict 로 변환</td></tr>
+    <tr><td>② 센서명 정규화</td><td><code>rag_agent_v2.py</code> · <code>SENSOR_ALIASES</code> / <code>normalize_sensor_name()</code></td><td>모델 이름(<code>TCP Top Pwr</code>)을 KG 이름(<code>TCP Top Power</code>)으로. MSS 19개 중 10개가 다름</td></tr>
+    <tr><td>③ 컨텍스트</td><td><code>rag_agent_v2.py</code> · <code>compact_shap()</code> / <code>_format_chain()</code></td><td>SHAP · KG 결과를 짧은 문자열로 변환</td></tr>
+    <tr><td>④ LLM</td><td><code>shap_agent.py</code> · <code>SHAPAgent.explain_fault()</code></td><td>센서 이상의 원인 해설 생성</td></tr>
+    <tr><td>④ LLM</td><td><code>rag_agent_v2.py</code> · <code>GraphRAGAgentV2.recommend()</code></td><td>정비 조치 가이드 생성</td></tr>
+    <tr><td>④ 공용 호출부</td><td><code>server.py</code> · <code>_call_rag_v2()</code> / <code>_call_rag_v2_text()</code></td><td>자동 Phase 2 와 <code>/api/rag_search</code> 가 함께 쓰는 V2 진입점</td></tr>
+    <tr><td>④ 병렬</td><td><code>server.py</code> · <code>_run_anomaly_pipeline()</code></td><td><code>asyncio.gather(..., return_exceptions=True)</code></td></tr>
+    <tr><td>⑤ 결과 처리</td><td><code>server.py</code> · <code>_run_anomaly_pipeline()</code></td><td>예외를 안내 문구로 대체, <code>display_fault_name</code> 치환</td></tr>
+    <tr><td>⑤ 길이 절단</td><td><code>notifications/slack.py</code> · <code>_truncate()</code></td><td>Slack 블록 3000자 한도 대비 2800자</td></tr>
+    <tr><td>⑥ 전달</td><td><code>server.py</code> · <code>_run_anomaly_pipeline()</code> / <code>_send_slack_alert()</code></td><td>WebSocket 브로드캐스트, Slack 발송</td></tr>
+    <tr><td>과금 스위치</td><td><code>agents/llm_guard.py</code> · <code>ensure_openai_enabled()</code></td><td>에이전트 <code>__init__</code> 첫 줄에서 차단</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 class="sec">3. 현재 한계</h2>
+
+<ul>
+  <li><b>센서 지문만으로는 결함 등급을 가르지 못한다.</b> KG 의 결함 21종 중 서로 다른 지문은 12종뿐이다. <code>sensors_high = ["TCP Top Power"]</code> 하나에 F01(TCP+50) · F05(TCP+10) · F10(TCP+30) · F21(TCP+20)이 걸려 스코어가 넷 다 <code>1.00</code> 동점이 된다. Stage 1 은 결함군까지만 좁히고, 그 안에서 어느 등급인지는 고르지 못한다. 실제 조회 결과로 확인했다.</li>
+  <li><b>OES · RFM 센서는 지문 매칭에 기여하지 않는다.</b> KG 에는 MSS 센서 19개만 노드로 있고 OES 파장(<code>364.33</code>)이나 RFM 하모닉(<code>S2P4</code>)에 대응하는 노드가 없다. 정규화에서 원본 그대로 통과한 뒤 매칭에서 탈락한다. 218개 피처 중 지문에 쓰이는 것은 7개다.</li>
+  <li><b>LLM 출력의 내용을 자동으로 검증하지 않는다.</b> 생성된 정비 가이드가 KG 에 실재하는 SOP 인지, 센서 근거와 모순되지 않는지 확인하는 단계가 없다. 현재는 SHAP 근거를 결과와 함께 보내 사람이 대조한다.</li>
+  <li><b>API 키 별칭 처리가 일부 파일에만 있다.</b> <code>.env</code> 는 <code>OPEN_AI_API_KEY</code> 를 쓰는데 <code>OPENAI_API_KEY</code> 로 복사하는 코드가 <code>shap_agent.py</code> 와 <code>server.py</code> 에만 있다. <code>rag_agent_v2.py</code> 를 단독 실행하면 인증에 실패한다(서버 경로는 <code>server.py</code> 가 먼저 처리해 문제없다).</li>
+  <li><b>V1 이 검증 스크립트에 남아 있다.</b> 실행 경로에서는 빠졌지만 <code>validation/</code> 두 스크립트가 아직 <code>GraphRAGAgent</code> 를 부른다. 현행 KG 스키마와 맞지 않아 빈 결과를 낸다.</li>
+</ul>
+
+</div>
+</body>
+</html>
