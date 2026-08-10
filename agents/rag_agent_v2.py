@@ -304,11 +304,27 @@ class GraphRAGAgentV2:
     # ------------------------------------------------------------------
     def _match_by_text(self, text: str) -> List[Dict]:
         """자연어 질문/힌트에서 결함 이름 매칭.
-        1) 전체 문자열 CONTAINS → 2) 실패 시 토큰(길이 2+)별 매칭.
-        예: "RF 이상 시 점검 절차는?" → 토큰 'RF'가 Fault.name에 매칭됨.
+
+        0) 공백 제거 후 이름 정확 일치 → 1) 전체 문자열 CONTAINS → 2) 토큰(길이 2+)별 매칭.
+
+        0단계가 필요한 이유: KG 의 Fault.name 에는 공백이 없다('BCl3-5', 'TCP+30').
+        사용자가 'BCl3 -5' 처럼 수치까지 적어 넣으면 1단계 CONTAINS 가 빗나가고,
+        토큰 폴백이 'BCl3' 로 매칭한 뒤 ORDER BY f.name LIMIT 1 을 적용해
+        이름순 첫 번째인 'BCl3+10' 을 돌려준다. 수치를 명시했으면 그 결함을 준다.
+        수치 없이 'BCl3' 만 적었다면 기존대로 변형 중 아무거나 나온다.
         """
         import re
+        compact = re.sub(r"\s+", "", text or "")
         with self.driver.session() as session:
+            if compact:
+                rec = session.run(
+                    "MATCH (f:Fault) WHERE toLower(f.name) = toLower($name) "
+                    "RETURN f.fault_id AS fault_id, f.name AS name LIMIT 1",
+                    name=compact
+                ).single()
+                if rec:
+                    return [{"fault_id": rec["fault_id"], "name": rec["name"], "score": 0.0}]
+
             rec = session.run(
                 "MATCH (f:Fault) WHERE f.name CONTAINS $name "
                 "RETURN f.fault_id AS fault_id, f.name AS name ORDER BY f.name LIMIT 1",
